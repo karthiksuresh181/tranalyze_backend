@@ -1,0 +1,6 @@
+*.json
+/projects
+*.pyc
+/.vscode
+*.tmp
+*.log
