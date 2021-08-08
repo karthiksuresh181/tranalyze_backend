@@ -4,3 +4,4 @@
 /.vscode
 *.tmp
 *.log
+/api_keys.py

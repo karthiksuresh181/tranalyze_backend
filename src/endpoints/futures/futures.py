@@ -1,11 +1,8 @@
-from flask import Blueprint
-import os
-
-import numpy as np
+from flask import Blueprint, send_file
 
 # define the blueprint
-futures = Blueprint(name="alerts_blueprint", import_name=__name__)
+futures = Blueprint(name="futures_blueprint", import_name=__name__)
 
-@futures.route('/get_all_coin_list', methods=['GET'])
-def hello_world_2():
-    return "Hello world 2"
+@futures.route('/get_coin_list', methods=['GET'])
+def get_coin_list():
+    return send_file("./static/resources/coin_list_futures.json")
