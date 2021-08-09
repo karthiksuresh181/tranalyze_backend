@@ -61,8 +61,19 @@ def get_inactive_alerts():
     inactive_alert_list = read_json(INACTIVE_ALERTS_JSON)
     return jsonify(inactive_alert_list)
 
+@alerts.route('/cancel_active_alerts', methods=['GET'])
+def cancel_active_alerts():
+    write_json(ACTIVE_ALERTS_JSON, [])
+    return {}
+
+@alerts.route('/clear_inactive_alerts', methods=['GET'])
+def clear_inactive_alerts():
+    write_json(INACTIVE_ALERTS_JSON, [])
+    return {}
+
 def update_favourite_pairs(symbol):
     favourite_list = read_json(FAVORITE_PAIRS_JSON)
     if not symbol in favourite_list:
         favourite_list.insert(0, symbol)
+        if(len(favourite_list) > 10): favourite_list.pop()
         write_json(FAVORITE_PAIRS_JSON, favourite_list)
