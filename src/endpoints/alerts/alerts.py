@@ -26,11 +26,8 @@ def set_alert():
     request_data = request.get_json(force=True)
     alert_id = str(uuid.uuid4())[:8]
     symbol = request_data["symbol"]
-    current_price = float(get_current_price(symbol))
     alert_price = float(request_data["price"])
-    alert_direction = "lesser"
-    if(current_price > alert_price): alert_direction = "greater"
-    sockets[alert_id] = bsm.start_symbol_ticker_futures_socket(callback=partial(alert_callback, alert_price=alert_price, alert_direction=alert_direction, alert_id=alert_id), symbol=symbol)
+    open_alert_socket(alert_id, symbol, alert_price)
     request_data["id"] = alert_id
     add_alert_to_json(request_data)
     update_favourite_pairs(request_data["symbol"])
@@ -63,10 +60,7 @@ def activate_inactive_alert():
             inactive_alert_price = float(inactive_alert["price"])
             del inactive_alert_list[index]
             active_alert_list.insert(0, inactive_alert)
-            current_price = float(get_current_price(inactive_alert_symbol))
-            alert_direction = "lesser"
-            if(current_price > inactive_alert_price): alert_direction = "greater"
-            sockets[inactive_alert_id] = bsm.start_symbol_ticker_futures_socket(callback=partial(alert_callback, alert_price=inactive_alert_price, alert_direction=alert_direction, alert_id=inactive_alert_id), symbol=inactive_alert_symbol)
+            open_alert_socket(inactive_alert_id, inactive_alert_symbol, inactive_alert_price)
             write_json(ACTIVE_ALERTS_JSON, active_alert_list)
             write_json(INACTIVE_ALERTS_JSON, inactive_alert_list)
             return {}
@@ -100,6 +94,12 @@ def test_alert():
     print(sockets)
     return {}
 
+def get_alert_direction(symbol, alert_price):
+    current_price = float(get_current_price(symbol))
+    alert_direction = "lesser"
+    if(current_price > alert_price): alert_direction = "greater"
+    return alert_direction
+
 def get_current_price(symbol):
     r = requests.get(f"https://www.binance.com/fapi/v1/ticker/price?symbol={symbol}")
     return (r.json()["price"])
@@ -118,6 +118,10 @@ def alert_callback(msg, alert_price, alert_direction, alert_id):
         push_to_inactive_alerts(alert_id)
         print("alert executed successfully")
         return
+
+def open_alert_socket(alert_id, symbol, alert_price):
+    alert_direction = get_alert_direction(symbol, alert_price)
+    sockets[alert_id] = bsm.start_symbol_ticker_futures_socket(callback=partial(alert_callback, alert_price=alert_price, alert_direction=alert_direction, alert_id=alert_id), symbol=symbol)
 
 def close_alert_socket(alert_id):
     bsm.stop_socket(sockets[alert_id])
