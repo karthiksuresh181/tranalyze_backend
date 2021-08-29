@@ -1,8 +1,4 @@
-from os import write
-import re
-from threading import current_thread
 from flask import Blueprint, request, jsonify
-import json
 import uuid
 from binance import ThreadedWebsocketManager
 from functools import partial
@@ -11,7 +7,7 @@ import requests
 
 from src.utils.json_helper import read_json, write_json
 from src.configs import ACTIVE_ALERTS_JSON, INACTIVE_ALERTS_JSON, FAVORITE_PAIRS_JSON, FAVOURITE_PAIRS_LIMIT
-
+from src.utils.email_client import send_email
 
 bsm = ThreadedWebsocketManager()
 bsm.start()
@@ -78,6 +74,9 @@ def get_inactive_alerts():
 
 @alerts.route('/cancel_active_alerts', methods=['GET'])
 def cancel_active_alerts():
+    active_alert_list = read_json(ACTIVE_ALERTS_JSON)
+    for alert in active_alert_list:
+        close_alert_socket(alert["id"])
     write_json(ACTIVE_ALERTS_JSON, [])
     return {}
 
@@ -88,9 +87,6 @@ def clear_inactive_alerts():
 
 @alerts.route("/test_alert", methods=['GET'])
 def test_alert():
-    # r = requests.get("https://www.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT")
-    # print(r.json()["price"])
-    # sockets["121"] = bsm.start_symbol_ticker_futures_socket(callback=partial(alert_callback, alert_price=2.4, direction="greater", id="121"), symbol=("CTKUSDT"))
     print(sockets)
     return {}
 
@@ -106,6 +102,7 @@ def get_current_price(symbol):
 
 def alert_callback(msg, alert_price, alert_direction, alert_id):
     current_price = float(msg['data']['a'])
+    symbol = msg['data']['s']
     stop_alert = False
     if(alert_direction == "lesser"):
         if current_price >= alert_price:
@@ -116,7 +113,7 @@ def alert_callback(msg, alert_price, alert_direction, alert_id):
     if(stop_alert):
         close_alert_socket(alert_id)
         push_to_inactive_alerts(alert_id)
-        print("alert executed successfully")
+        send_email(symbol, str(current_price))
         return
 
 def open_alert_socket(alert_id, symbol, alert_price):
@@ -128,9 +125,9 @@ def close_alert_socket(alert_id):
     del sockets[alert_id]
 
 def add_alert_to_json(request_data):
-    active_alerts_list = read_json(ACTIVE_ALERTS_JSON)
-    active_alerts_list.insert(0, request_data)
-    write_json(ACTIVE_ALERTS_JSON, active_alerts_list)
+    active_alert_list = read_json(ACTIVE_ALERTS_JSON)
+    active_alert_list.insert(0, request_data)
+    write_json(ACTIVE_ALERTS_JSON, active_alert_list)
 
 def push_to_inactive_alerts(alert_id):
     active_alert_list = read_json(ACTIVE_ALERTS_JSON)
