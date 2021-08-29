@@ -1,9 +1,9 @@
-from flask import Blueprint, send_file, jsonify
+from flask import Blueprint, send_file, jsonify, request
 from binance import Client
 from src.utils.telegram_client import send_message_to_bot
 import pandas as pd
 from functools import reduce
-from datetime import datetime
+import datetime
 import numpy as np
 
 from src.utils.json_helper import read_json
@@ -45,28 +45,18 @@ def get_positions():
     get_limits(open_orders, pos["symbol"])
     return jsonify(position_list)
 
-@futures.route('/get_pnl_data', methods=['GET'])
+@futures.route('/get_pnl_data', methods=['POST'])
 def get_pnl_data():
-    df = pd.DataFrame(client.futures_account_trades())
-    df.time = df.time.apply(lambda x: str(datetime.fromtimestamp(x/1000).date()))
-    df.realizedPnl = df.realizedPnl.apply(lambda x: float(x))
-    df = df[(df.realizedPnl) != 0]
-    df = df[['symbol', 'realizedPnl', 'time']]
-    df_profit = df[df.realizedPnl > 0]
-    df_loss = df[df.realizedPnl < 0]
-    df_profit = df_profit.rename(columns={'realizedPnl': 'profit'})
-    df_loss = df_loss.rename(columns={'realizedPnl': 'loss'})
-    df_profit = (df_profit.groupby('time').sum())
-    df_loss = (df_loss.groupby('time').sum())
-    df_pnl = (df.groupby('time').sum())
-    dfs = [df_pnl, df_profit, df_loss]
-    df_final = reduce(lambda left,right: left.join(right, how='outer', on='time'), dfs)
-    df_final = df_final.replace(np.nan, 0, regex=True)
-    final_data = (df_final.to_dict())
-    labels = (list(final_data['profit'].keys()))
-    profit = (list(final_data['profit'].values()))
-    loss = (list(final_data['loss'].values()))
-    pnl = (list(final_data['realizedPnl'].values()))
+    time_period = request.get_json(force=True)["timePeriod"]
+    if(time_period == "week"):
+        trade_history = get_trade_history(1)
+    elif(time_period == "month"):
+        trade_history = get_trade_history(4)
+    trade_history = process_trade_history(trade_history)
+    labels = (list(trade_history['profit'].keys()))
+    profit = (list(trade_history['profit'].values()))
+    loss = (list(trade_history['loss'].values()))
+    pnl = (list(trade_history['realizedPnl'].values()))
     response = {
         "labels": labels,
         "profit": profit,
@@ -85,4 +75,34 @@ def get_limits(open_orders, symbol):
             else:
                 stop_price = order["stopPrice"]
     return limit_price, stop_price
+
+def get_trade_history(weeks):
+    frames = []
+    today = datetime.date.today()
+    for i in range(weeks):
+        days = (i+1 * 7)
+        current_date = str(today-datetime.timedelta(days=days))
+        current_timestamp = int(datetime.datetime.strptime(current_date, '%Y-%m-%d').timestamp()*1000)
+        frames.insert(0, pd.DataFrame(client.futures_account_trades(startTime=current_timestamp)))
+    df = pd.concat(frames, ignore_index=True)
+    return df
+
+def process_trade_history(df):
+    df.time = df.time.apply(lambda x: str(datetime.datetime.fromtimestamp(x/1000).date()))
+    df.realizedPnl = df.realizedPnl.apply(lambda x: float(x))
+    # df = df[(df.realizedPnl) != 0]
+    df = df[['symbol', 'realizedPnl', 'time']]
+    df_profit = df[df.realizedPnl > 0]
+    df_loss = df[df.realizedPnl < 0]
+    df_profit = df_profit.rename(columns={'realizedPnl': 'profit'})
+    df_loss = df_loss.rename(columns={'realizedPnl': 'loss'})
+    df_profit = (df_profit.groupby('time').sum())
+    df_loss = (df_loss.groupby('time').sum())
+    df_pnl = (df.groupby('time').sum())
+    dfs = [df_pnl, df_profit, df_loss]
+    df_final = reduce(lambda left,right: left.join(right, how='outer', on='time'), dfs)
+    df_final = df_final.replace(np.nan, 0, regex=True)
+    processed_history = (df_final.to_dict())
+    return processed_history
+
 
