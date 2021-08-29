@@ -52,6 +52,8 @@ def get_pnl_data():
         trade_history = get_trade_history(1)
     elif(time_period == "month"):
         trade_history = get_trade_history(4)
+    else:
+        trade_history = get_trade_history(12)
     trade_history = process_trade_history(trade_history)
     labels = (list(trade_history['profit'].keys()))
     profit = (list(trade_history['profit'].values()))
