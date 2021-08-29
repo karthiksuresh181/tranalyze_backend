@@ -31,7 +31,6 @@ def set_alert():
     alert_direction = "lesser"
     if(current_price > alert_price): alert_direction = "greater"
     sockets[alert_id] = bsm.start_symbol_ticker_futures_socket(callback=partial(alert_callback, alert_price=alert_price, alert_direction=alert_direction, alert_id=alert_id), symbol=symbol)
-
     request_data["id"] = alert_id
     add_alert_to_json(request_data)
     update_favourite_pairs(request_data["symbol"])
@@ -42,7 +41,7 @@ def cancel_active_alert():
     request_data = request.get_json(force=True)
     active_alert_id = request_data["id"]
     active_alert_list = read_json(ACTIVE_ALERTS_JSON)
-    sockets[active_alert_id].stop()
+    close_alert_socket(active_alert_id)
     for index ,alert in enumerate(active_alert_list):
         if(alert["id"] == active_alert_id):
             del active_alert_list[index]
@@ -56,12 +55,18 @@ def activate_inactive_alert():
     inactive_alert_id = request_data["id"]
     active_alert_list = read_json(ACTIVE_ALERTS_JSON)
     inactive_alert_list = read_json(INACTIVE_ALERTS_JSON)
-
     for index, alert in enumerate(inactive_alert_list):
         if(alert["id"] == inactive_alert_id):
             inactive_alert = alert.copy()
+            inactive_alert_symbol = inactive_alert["symbol"]
+            inactive_alert_id = inactive_alert["id"]
+            inactive_alert_price = float(inactive_alert["price"])
             del inactive_alert_list[index]
             active_alert_list.insert(0, inactive_alert)
+            current_price = float(get_current_price(inactive_alert_symbol))
+            alert_direction = "lesser"
+            if(current_price > inactive_alert_price): alert_direction = "greater"
+            sockets[inactive_alert_id] = bsm.start_symbol_ticker_futures_socket(callback=partial(alert_callback, alert_price=inactive_alert_price, alert_direction=alert_direction, alert_id=inactive_alert_id), symbol=inactive_alert_symbol)
             write_json(ACTIVE_ALERTS_JSON, active_alert_list)
             write_json(INACTIVE_ALERTS_JSON, inactive_alert_list)
             return {}
@@ -109,24 +114,31 @@ def alert_callback(msg, alert_price, alert_direction, alert_id):
         if current_price <= alert_price:
             stop_alert = True
     if(stop_alert):
-        bsm.stop_socket(sockets[alert_id])
-        del sockets[alert_id]
-        remove_alert_from_json(alert_id)
+        close_alert_socket(alert_id)
+        push_to_inactive_alerts(alert_id)
         print("alert executed successfully")
         return
+
+def close_alert_socket(alert_id):
+    bsm.stop_socket(sockets[alert_id])
+    del sockets[alert_id]
 
 def add_alert_to_json(request_data):
     active_alerts_list = read_json(ACTIVE_ALERTS_JSON)
     active_alerts_list.insert(0, request_data)
     write_json(ACTIVE_ALERTS_JSON, active_alerts_list)
 
-def remove_alert_from_json(alert_id):
-    active_alerts_list = read_json(ACTIVE_ALERTS_JSON)
-    for alert in active_alerts_list:
+def push_to_inactive_alerts(alert_id):
+    active_alert_list = read_json(ACTIVE_ALERTS_JSON)
+    inactive_alert_list = read_json(INACTIVE_ALERTS_JSON)
+    for index, alert in enumerate(active_alert_list):
         if(alert["id"] == alert_id):
-            active_alerts_list.remove(alert)
-            break
-    write_json(ACTIVE_ALERTS_JSON, active_alerts_list)
+            active_alert = alert.copy()
+            del active_alert_list[index]
+            inactive_alert_list.insert(0, active_alert)
+            write_json(ACTIVE_ALERTS_JSON, active_alert_list)
+            write_json(INACTIVE_ALERTS_JSON, inactive_alert_list)
+            return {}
 
 def update_favourite_pairs(symbol):
     favourite_list = read_json(FAVORITE_PAIRS_JSON)
