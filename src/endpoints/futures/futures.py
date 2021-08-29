@@ -92,7 +92,7 @@ def get_trade_history(weeks):
 def process_trade_history(df):
     df.time = df.time.apply(lambda x: str(datetime.datetime.fromtimestamp(x/1000).date()))
     df.realizedPnl = df.realizedPnl.apply(lambda x: float(x))
-    # df = df[(df.realizedPnl) != 0]
+    df = df[(df.realizedPnl) != 0]
     df = df[['symbol', 'realizedPnl', 'time']]
     df_profit = df[df.realizedPnl > 0]
     df_loss = df[df.realizedPnl < 0]
