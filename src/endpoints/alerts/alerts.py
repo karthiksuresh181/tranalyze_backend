@@ -8,6 +8,7 @@ import requests
 from src.utils.json_helper import read_json, write_json
 from src.configs import ACTIVE_ALERTS_JSON, INACTIVE_ALERTS_JSON, FAVORITE_PAIRS_JSON, FAVOURITE_PAIRS_LIMIT
 from src.utils.email_client import send_email
+from src.utils.telegram_client import send_message_to_bot
 
 bsm = ThreadedWebsocketManager()
 bsm.start()
@@ -114,6 +115,7 @@ def alert_callback(msg, alert_price, alert_direction, alert_id):
         close_alert_socket(alert_id)
         push_to_inactive_alerts(alert_id)
         send_email(symbol, str(current_price))
+        send_message_to_bot(symbol, current_price)
         return
 
 def open_alert_socket(alert_id, symbol, alert_price):
