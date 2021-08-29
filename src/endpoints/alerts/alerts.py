@@ -5,7 +5,7 @@ import json
 import uuid
 
 from src.utils.json_helper import read_json, write_json
-from src.configs import ACTIVE_ALERTS_JSON, INACTIVE_ALERTS_JSON, FAVORITE_PAIRS_JSON
+from src.configs import ACTIVE_ALERTS_JSON, INACTIVE_ALERTS_JSON, FAVORITE_PAIRS_JSON, FAVOURITE_PAIRS_LIMIT
 
 
 # define the blueprint
@@ -75,5 +75,5 @@ def update_favourite_pairs(symbol):
     favourite_list = read_json(FAVORITE_PAIRS_JSON)
     if not symbol in favourite_list:
         favourite_list.insert(0, symbol)
-        if(len(favourite_list) > 10): favourite_list.pop()
+        if(len(favourite_list) > FAVOURITE_PAIRS_LIMIT): favourite_list.pop()
         write_json(FAVORITE_PAIRS_JSON, favourite_list)
