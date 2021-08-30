@@ -5,3 +5,5 @@ RUN apt-get update
 RUN pip install -r requirements.txt
 RUN pip install uwsgi
 RUN ./run_app_prod.sh
+
+EXPOSE 9995
