@@ -1,7 +1,6 @@
 import datetime
-from typing import overload
-from numpy import NAN
 import pandas as pd
+from collections import OrderedDict
 
 from binance import Client
 from api_keys import BINANCE_API_KEY, BINANCE_API_SECRET
@@ -13,7 +12,6 @@ def get_percentage_difference(current, previous):
         return 0
     try:
         diff = _float((abs(current - previous) / previous) * 100.0)
-        print(diff)
         if current > previous:
             return diff
         return diff * (-1)
@@ -72,10 +70,6 @@ def generate_monthly_trades_overview():
         df = get_df(current_date, end_day)
         _, _, _, _, gain = generate_insights(df)
         monthly_trades_overview[str(current_date)] = gain
-        # monthly_trades_overview.append(str(current_date))
-        # monthly_trades_overview.append(gain)
-        # monthly_trades_overview.append("success" if gain > 0 else "error")
-        # monthly_trades_overview.append("arrow_upward" if gain > 0 else "arrow_downward")
         current_date = current_date - datetime.timedelta(days=1)
 
     return monthly_trades_overview
@@ -121,6 +115,22 @@ def generate_daily_trades_overview():
         trades_overview.append("arrow_upward" if gain > 0 else "arrow_downward")
         current_date = current_date - datetime.timedelta(days=1)
     return trades_overview
+
+def prepare_chart_data(chart_data):
+    chart_data = OrderedDict(reversed(list(chart_data.items())))
+    labels = []
+    data = []
+    for key in chart_data:
+        labels.append(key)
+        data.append(chart_data[key])
+    datasets = {
+        "label": "PNL",
+        "data": data
+    }
+    return {
+        "labels": labels,
+        "datasets": datasets
+    }
         
 
 def generate_overview():
@@ -131,11 +141,13 @@ def generate_overview():
     trades_overview = generate_daily_trades_overview()
     yesterday_comparison_percentage = generate_yesterday_comparison(trades_overview)
     monthly_trades_overview = generate_monthly_trades_overview()
+    monthly_chart_data = prepare_chart_data(monthly_trades_overview)
 
     overview["weekly_comparison_overview"] = weekly_comparison_overview
     overview["trades_overview"] = trades_overview
     overview["yesterday_comparison_percentage"] = yesterday_comparison_percentage
     overview["monthly_trades_overview"] = monthly_trades_overview
+    overview["monthly_chart_data"] = monthly_chart_data
     overview["pnl_overview"] = {
         "profit": profit, 
         "loss": loss,
