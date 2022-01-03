@@ -16,7 +16,7 @@ def get_percentage_difference(current, previous):
             return diff
         return diff * (-1)
     except ZeroDivisionError:
-        return "0"
+        return 0
 
 def _float(flt):
     return float("{0:.2f}".format(flt))
